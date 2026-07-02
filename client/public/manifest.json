@@ -1,0 +1,16 @@
+{
+  "name": "My Marketing Minder CRM",
+  "short_name": "MMM CRM",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#EBC522",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "1080x1350",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
