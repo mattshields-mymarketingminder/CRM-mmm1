@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { google } from 'googleapis';
 import { config } from '../config.js';
 import { query } from '../db.js';
+import { auditRateLimiter } from '../rateLimit.js';
 
 const anthropic = new Anthropic({ apiKey: config.anthropicApiKey });
 
@@ -34,7 +35,7 @@ function getSheetsClient() {
  */
 export const auditRouter = Router();
 
-auditRouter.post('/', async (req, res, next) => {
+auditRouter.post('/', auditRateLimiter, async (req, res, next) => {
   try {
     const { url, pageType } = req.body || {};
     if (!url) return res.status(400).json({ error: 'URL is required' });
@@ -113,7 +114,7 @@ Score each factor 0-100 and provide your analysis. Return ONLY valid JSON, no ma
  */
 export const auditLeadsRouter = Router();
 
-auditLeadsRouter.post('/', async (req, res, next) => {
+auditLeadsRouter.post('/', auditRateLimiter, async (req, res, next) => {
   try {
     const { name, businessName, website, email, phone, pageType, auditResults, timestamp } =
       req.body || {};

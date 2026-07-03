@@ -76,3 +76,14 @@ CREATE TABLE IF NOT EXISTS audit_leads (
 
 CREATE INDEX IF NOT EXISTS idx_audit_leads_email ON audit_leads (email);
 CREATE INDEX IF NOT EXISTS idx_audit_leads_created ON audit_leads (created_at);
+
+-- Backs the shared rate limiter for the public audit endpoints
+-- (POST /api/audit, POST /api/leads/audit): 5/IP/day, 1/IP/10min.
+CREATE TABLE IF NOT EXISTS audit_rate_limits (
+  id         SERIAL PRIMARY KEY,
+  ip         TEXT NOT NULL,
+  path       TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_rate_limits_ip_created ON audit_rate_limits (ip, created_at);

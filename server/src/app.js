@@ -13,6 +13,10 @@ import { auditRouter, auditLeadsRouter } from './routes/audit.js';
 
 export function createApp() {
   const app = express();
+  // Render (and most PaaS) terminate TLS at a reverse proxy in front of us.
+  // Without this, req.ip is the proxy's address for every request, which
+  // would make the audit rate limiter treat all visitors as one IP.
+  app.set('trust proxy', 1);
   app.use(cors({ origin: config.corsOrigins }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
