@@ -33,6 +33,34 @@ function getSheetsClient() {
  * Fetches a URL's HTML and asks Claude to score it on 8 conversion factors.
  * Powers the public landing-page-audit tool — no CRM login required.
  */
+
+// Common markers seen on captcha / bot-protection interstitials (Cloudflare,
+// Incapsula, PerimeterX, generic "verify you are human" pages, etc). If the
+// fetched HTML matches one of these instead of real page content, the target
+// site is blocking the audit rather than the audit genuinely failing.
+const BOT_CHALLENGE_PATTERNS = [
+  /captcha/i,
+  /are you a human/i,
+  /verify you are human/i,
+  /checking your browser/i,
+  /just a moment/i,
+  /cf-browser-verification/i,
+  /cf-chl-/i,
+  /attention required[\s\S]{0,200}cloudflare/i,
+  /access denied/i,
+  /request unsuccessful[\s\S]{0,200}incapsula/i,
+  /distil_r_captcha/i,
+  /perimeterx/i,
+  /ddos protection by/i,
+  /security check/i,
+  /unusual traffic/i,
+  /automated (queries|requests)/i,
+];
+
+function looksLikeBotChallenge(html) {
+  return typeof html === 'string' && BOT_CHALLENGE_PATTERNS.some((pattern) => pattern.test(html));
+}
+
 export const auditRouter = Router();
 
 auditRouter.post('/', auditRateLimiter, async (req, res, next) => {
@@ -46,11 +74,30 @@ auditRouter.post('/', auditRateLimiter, async (req, res, next) => {
         timeout: 10000,
         maxContentLength: 2_000_000,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-GB,en;q=0.9',
         },
       });
-      htmlContent = String(response.data).slice(0, 8000);
+
+      const rawHtml = String(response.data);
+      if (looksLikeBotChallenge(rawHtml)) {
+        return res.status(422).json({
+          error:
+            "This site appears to be blocking automated requests (a captcha or bot-protection page was returned instead of the real page). Try again later, or check your site's security/firewall settings to allow the audit tool through.",
+        });
+      }
+
+      htmlContent = rawHtml.slice(0, 8000);
     } catch (fetchErr) {
+      const errorHtml = String(fetchErr.response?.data ?? '');
+      if (looksLikeBotChallenge(errorHtml)) {
+        return res.status(422).json({
+          error:
+            "This site appears to be blocking automated requests (a captcha or bot-protection page was returned instead of the real page). Try again later, or check your site's security/firewall settings to allow the audit tool through.",
+        });
+      }
       return res.status(400).json({ error: `Could not fetch website: ${fetchErr.message}` });
     }
 
