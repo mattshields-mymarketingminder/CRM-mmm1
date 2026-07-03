@@ -27,4 +27,10 @@ export const config = {
   // not a file path. googleapis reads it via `credentials`, see routes/audit.js.
   googleServiceAccountKey: process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
   googleAuditSheetId: process.env.GOOGLE_AUDIT_SHEET_ID,
+
+  // Rate limits for the public audit endpoints (see rateLimit.js). Defaults
+  // match the original hardcoded values; override via env vars on Render
+  // for temporary testing without needing a code change/redeploy.
+  auditDayLimit: parseInt(process.env.AUDIT_DAY_LIMIT || '5', 10),
+  auditCooldownLimit: parseInt(process.env.AUDIT_COOLDOWN_LIMIT || '1', 10),
 };
