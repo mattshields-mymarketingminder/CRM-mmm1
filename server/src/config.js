@@ -16,4 +16,15 @@ export const config = {
   // Public origin the app is served from, used in webhook URLs shown to clients.
   publicUrl: process.env.PUBLIC_URL || 'https://crm.mymarketingminder.com',
   corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173').split(','),
+
+  // Landing-page auditor (public tool: POST /api/audit, POST /api/leads/audit)
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+  anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-5',
+  brevoApiKey: process.env.BREVO_API_KEY,
+  brevoSenderEmail: process.env.BREVO_SENDER_EMAIL,
+  brevoReplyEmail: process.env.BREVO_REPLY_EMAIL,
+  // Paste the full service-account JSON (minified, one line) as the value —
+  // not a file path. googleapis reads it via `credentials`, see routes/audit.js.
+  googleServiceAccountKey: process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
+  googleAuditSheetId: process.env.GOOGLE_AUDIT_SHEET_ID,
 };

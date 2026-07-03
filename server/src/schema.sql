@@ -53,3 +53,26 @@ CREATE TABLE IF NOT EXISTS activities (
 );
 
 CREATE INDEX IF NOT EXISTS idx_activities_lead ON activities (lead_id, created_at);
+
+-- Landing-page auditor: public tool prospects (not tied to a client tenant,
+-- unlike `leads`). Populated by POST /api/leads/audit.
+CREATE TABLE IF NOT EXISTS audit_leads (
+  id            SERIAL PRIMARY KEY,
+  name          TEXT,
+  business_name TEXT NOT NULL,
+  website       TEXT,
+  email         TEXT NOT NULL,
+  phone         TEXT,
+  page_type     TEXT,
+  overall_score NUMERIC(5, 2),
+  scores        JSONB,
+  strengths     JSONB,
+  improvements  JSONB,
+  recommendation TEXT,
+  brevo_sent    BOOLEAN NOT NULL DEFAULT false,
+  sheet_synced  BOOLEAN NOT NULL DEFAULT false,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_leads_email ON audit_leads (email);
+CREATE INDEX IF NOT EXISTS idx_audit_leads_created ON audit_leads (created_at);

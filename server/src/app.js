@@ -9,6 +9,7 @@ import { clientsRouter } from './routes/clients.js';
 import { leadsRouter } from './routes/leads.js';
 import { reportsRouter } from './routes/reports.js';
 import { ingestRouter } from './routes/ingest.js';
+import { auditRouter, auditLeadsRouter } from './routes/audit.js';
 
 export function createApp() {
   const app = express();
@@ -19,6 +20,11 @@ export function createApp() {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.use('/api/auth', authRouter);
   app.use('/api/clients', clientsRouter);
+  // Public landing-page-audit tool. Both must be mounted BEFORE
+  // '/api/leads' below — leadsRouter applies requireAuth to everything
+  // under it, and these two endpoints are intentionally unauthenticated.
+  app.use('/api/audit', auditRouter);
+  app.use('/api/leads/audit', auditLeadsRouter);
   app.use('/api/leads', leadsRouter);
   app.use('/api/reports', reportsRouter);
   app.use('/api/ingest', ingestRouter);

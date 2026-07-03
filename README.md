@@ -66,6 +66,33 @@ ingestion, UTM attribution, reporting) against `mmm_crm_test`.
 | `PUBLIC_URL` | `https://crm.mymarketingminder.com` (used in webhook URLs shown to clients) |
 | `PORT` | Default `4000` |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Used by `npm run seed` to create the master login |
+| `ANTHROPIC_API_KEY` | Claude API key — powers `POST /api/audit` |
+| `ANTHROPIC_MODEL` | Default `claude-sonnet-5` |
+| `BREVO_API_KEY` | Sends the audit report email from `POST /api/leads/audit` |
+| `BREVO_SENDER_EMAIL` / `BREVO_REPLY_EMAIL` | From/reply-to addresses for that email |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | Full service-account JSON, minified to one line (not a file path) |
+| `GOOGLE_AUDIT_SHEET_ID` | Spreadsheet ID that audit leads get appended to (sheet/tab named `Leads`) |
+
+For local dev, copy `server/.env.example` to `server/.env` — `npm run dev:server` / `npm start` load it automatically via Node's `--env-file-if-exists` flag.
+
+## Landing-page auditor (public tool)
+
+Two unauthenticated endpoints back a public "audit my landing page" tool (a
+separate marketing-site frontend, not part of `client/`):
+
+- `POST /api/audit` — `{ url, pageType }` → fetches the page, asks Claude to
+  score 8 conversion factors, returns the scored JSON straight through (not
+  persisted).
+- `POST /api/leads/audit` — `{ name, businessName, website, email, phone,
+  pageType, auditResults, timestamp }` → saves the prospect to the
+  `audit_leads` table (source of truth), then best-effort emails the report
+  via Brevo and best-effort appends a row to a Google Sheet. Brevo/Sheet
+  failures are logged but never fail the save.
+
+These prospects are agency leads, not tied to any CRM client tenant, so they
+live in their own `audit_leads` table rather than the multi-tenant `leads`
+table. If the audit tool's frontend runs on a different origin, add that
+origin to `CORS_ORIGINS`.
 
 ## Deploying to crm.mymarketingminder.com
 
