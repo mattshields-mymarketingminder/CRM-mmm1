@@ -9,9 +9,14 @@ import { clientsRouter } from './routes/clients.js';
 import { leadsRouter } from './routes/leads.js';
 import { reportsRouter } from './routes/reports.js';
 import { ingestRouter } from './routes/ingest.js';
+import { auditRouter, auditLeadsRouter } from './routes/audit.js';
 
 export function createApp() {
   const app = express();
+  // Render (and most PaaS) terminate TLS at a reverse proxy in front of us.
+  // Without this, req.ip is the proxy's address for every request, which
+  // would make the audit rate limiter treat all visitors as one IP.
+  app.set('trust proxy', 1);
   app.use(cors({ origin: config.corsOrigins }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
@@ -19,6 +24,11 @@ export function createApp() {
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
   app.use('/api/auth', authRouter);
   app.use('/api/clients', clientsRouter);
+  // Public landing-page-audit tool. Both must be mounted BEFORE
+  // '/api/leads' below — leadsRouter applies requireAuth to everything
+  // under it, and these two endpoints are intentionally unauthenticated.
+  app.use('/api/audit', auditRouter);
+  app.use('/api/leads/audit', auditLeadsRouter);
   app.use('/api/leads', leadsRouter);
   app.use('/api/reports', reportsRouter);
   app.use('/api/ingest', ingestRouter);
