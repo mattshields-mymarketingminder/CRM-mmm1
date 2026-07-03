@@ -74,8 +74,13 @@ CREATE TABLE IF NOT EXISTS audit_leads (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Added after the initial rollout, so this must work against an
+-- already-deployed table too (migrate() re-runs this whole file on every boot).
+ALTER TABLE audit_leads ADD COLUMN IF NOT EXISTS manual_audit_needed BOOLEAN NOT NULL DEFAULT false;
+
 CREATE INDEX IF NOT EXISTS idx_audit_leads_email ON audit_leads (email);
 CREATE INDEX IF NOT EXISTS idx_audit_leads_created ON audit_leads (created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_leads_manual_audit_needed ON audit_leads (manual_audit_needed) WHERE manual_audit_needed;
 
 -- Backs the shared rate limiter for the public audit endpoints
 -- (POST /api/audit, POST /api/leads/audit): 5/IP/day, 1/IP/10min.

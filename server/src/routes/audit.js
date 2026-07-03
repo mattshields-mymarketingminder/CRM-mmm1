@@ -84,6 +84,7 @@ auditRouter.post('/', auditRateLimiter, async (req, res, next) => {
       const rawHtml = String(response.data);
       if (looksLikeBotChallenge(rawHtml)) {
         return res.status(422).json({
+          blocked: true,
           error:
             "This site appears to be blocking automated requests (a captcha or bot-protection page was returned instead of the real page). Try again later, or check your site's security/firewall settings to allow the audit tool through.",
         });
@@ -94,6 +95,7 @@ auditRouter.post('/', auditRateLimiter, async (req, res, next) => {
       const errorHtml = String(fetchErr.response?.data ?? '');
       if (looksLikeBotChallenge(errorHtml)) {
         return res.status(422).json({
+          blocked: true,
           error:
             "This site appears to be blocking automated requests (a captcha or bot-protection page was returned instead of the real page). Try again later, or check your site's security/firewall settings to allow the audit tool through.",
         });
@@ -163,16 +165,29 @@ export const auditLeadsRouter = Router();
 
 auditLeadsRouter.post('/', auditRateLimiter, async (req, res, next) => {
   try {
-    const { name, businessName, website, email, phone, pageType, auditResults, timestamp } =
-      req.body || {};
+    const {
+      name,
+      businessName,
+      website,
+      email,
+      phone,
+      pageType,
+      auditResults,
+      timestamp,
+      manualAuditNeeded,
+    } = req.body || {};
     if (!email || !businessName) {
       return res.status(400).json({ error: 'Email and business name required' });
     }
+    // Set by the frontend when the automated /api/audit scan came back
+    // `blocked: true` (captcha/bot-protection) — no score exists yet, so
+    // this becomes a follow-up-personally lead instead of a report lead.
+    const needsManualAudit = Boolean(manualAuditNeeded);
 
     const { rows } = await query(
       `INSERT INTO audit_leads
-        (name, business_name, website, email, phone, page_type, overall_score, scores, strengths, improvements, recommendation)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        (name, business_name, website, email, phone, page_type, overall_score, scores, strengths, improvements, recommendation, manual_audit_needed)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING id`,
       [
         name || null,
@@ -186,6 +201,7 @@ auditLeadsRouter.post('/', auditRateLimiter, async (req, res, next) => {
         auditResults?.strengths ? JSON.stringify(auditResults.strengths) : null,
         auditResults?.improvements ? JSON.stringify(auditResults.improvements) : null,
         auditResults?.recommendation || null,
+        needsManualAudit,
       ]
     );
     const leadId = rows[0].id;
@@ -199,8 +215,12 @@ auditLeadsRouter.post('/', auditRateLimiter, async (req, res, next) => {
             to: [{ email, name }],
             sender: { email: config.brevoSenderEmail, name: 'My Marketing Minder' },
             replyTo: { email: config.brevoReplyEmail },
-            subject: `Your Landing Page Audit Report - ${businessName}`,
-            htmlContent: buildAuditEmailHtml({ businessName, website, auditResults }),
+            subject: needsManualAudit
+              ? `We're on it - your manual audit for ${businessName}`
+              : `Your Landing Page Audit Report - ${businessName}`,
+            htmlContent: needsManualAudit
+              ? buildManualAuditEmailHtml({ businessName, website })
+              : buildAuditEmailHtml({ businessName, website, auditResults }),
           },
           { headers: { 'api-key': config.brevoApiKey, 'Content-Type': 'application/json' } }
         );
@@ -230,7 +250,7 @@ auditLeadsRouter.post('/', auditRateLimiter, async (req, res, next) => {
               auditResults?.overallScore ?? '',
               auditResults?.scores?.cta ?? '',
               auditResults?.scores?.formPresence ?? '',
-              'Pending follow-up',
+              needsManualAudit ? 'Manual audit needed' : 'Pending follow-up',
             ]],
           },
         });
@@ -246,11 +266,52 @@ auditLeadsRouter.post('/', auditRateLimiter, async (req, res, next) => {
       leadId,
     ]);
 
-    res.json({ success: true, message: 'Lead saved', email, leadId });
+    res.json({ success: true, message: 'Lead saved', email, leadId, manualAuditNeeded: needsManualAudit });
   } catch (err) {
     next(err);
   }
 });
+
+function buildManualAuditEmailHtml({ businessName, website }) {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #EBC522; padding: 20px; text-align: center; border-radius: 8px; margin-bottom: 30px; }
+        .box { background: #f5f5f5; padding: 20px; border-left: 4px solid #EBC522; margin: 20px 0; }
+        .cta { background: #2C2406; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1 style="margin: 0; color: #2C2406;">We\'re On It</h1>
+          <p style="margin: 10px 0 0 0; color: #2C2406;">${businessName}</p>
+        </div>
+        <div class="box">
+          <p>Thanks for requesting a landing page audit${website ? ` for <strong>${website}</strong>` : ''}.</p>
+          <p>Your site\'s security settings blocked our automated scanner — which is
+          actually a good sign, since it means you take security seriously. It does
+          mean we couldn\'t generate an instant score, though.</p>
+          <p><strong>I\'ll personally review your site and send you a detailed audit
+          report within 24 hours.</strong></p>
+        </div>
+        <p>In the meantime, if there\'s anything specific you\'d like me to look at,
+        just reply to this email.</p>
+        <a href="https://mymarketingminder.com/consultation" class="cta">Book a Strategy Call</a>
+        <hr style="margin-top: 40px; border: none; border-top: 1px solid #ddd;">
+        <p style="font-size: 12px; color: #666; text-align: center;">
+          My Marketing Minder • Edinburgh, Scotland<br>
+          ${website || ''}
+        </p>
+      </div>
+    </body>
+    </html>`;
+}
 
 function buildAuditEmailHtml({ businessName, website, auditResults }) {
   const s = auditResults?.scores || {};
