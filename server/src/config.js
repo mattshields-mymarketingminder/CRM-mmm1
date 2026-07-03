@@ -15,7 +15,7 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   // Public origin the app is served from, used in webhook URLs shown to clients.
   publicUrl: process.env.PUBLIC_URL || 'https://crm.mymarketingminder.com',
-  corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:5173').split(','),
+  corsOrigins: (process.env.CORS_ORIGINS || 'https://landing-page-auditor-yi1n.vercel.app,http://localhost:3000,http://localhost:5173').split(','),
 
   // Landing-page auditor (public tool: POST /api/audit, POST /api/leads/audit)
   anthropicApiKey: process.env.ANTHROPIC_API_KEY,
